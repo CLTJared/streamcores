@@ -16,7 +16,7 @@ function App() {
   const [status, setStatus] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
-  const { isAuthenticated, login, logout } = useTwitchAuth();
+  const { isAuthenticated, login, logout, accessToken } = useTwitchAuth();
 
   const handleConnect = async () => {
     if (!channel.trim()) return;
@@ -25,7 +25,7 @@ function App() {
       const res = await fetch("http://localhost:3001/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel }),
+        body: JSON.stringify({ channel, accessToken }),
       });
 
       const data = await res.json();

@@ -94,14 +94,9 @@ tss.on('connection', (ws) => {
 });
 
 app.post('/connect', async (req, res) => {
-    const { channel } = req.body;
+    const { channel, accessToken } = req.body;
 
     if (!channel) return res.status(400).json({ error: 'Channel is required.' });
-
-      const accessToken = await getFreshAccessToken();
-        if (!accessToken) {
-            return res.status(500).json({ error: "Could not obtain access token" });
-        }
 
     connectTwitchChannel(channel.toLowerCase(), accessToken);
     res.json({ status: 'Connecting', channel });
