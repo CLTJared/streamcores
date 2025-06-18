@@ -1,54 +1,123 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
-import { type TwitchAuthContextType } from "../models/Auth";
+import React, { createContext, useContext, useState, useEffect, type ReactNode, useCallback, useRef } from "react";
 
-const AuthContext = createContext<TwitchAuthContextType | undefined>(undefined);
+type AuthContextType = {
+  accessToken: string | null;
+  isAuthenticated: boolean;
+  login: (accessToken: string, refreshToken: string, expiresIn: number) => void;
+  logout: () => void;
+};
 
-export const TwitchAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
- const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+const TwitchAuthContext = createContext<AuthContextType | undefined>(undefined);
 
-  useEffect(() => {
-    const storedAccess = localStorage.getItem("twitch_access_token");
-    const storedRefresh = localStorage.getItem("twitch_refresh_token");
+const REFRESH_MARGIN = 60; // seconds before expiry to refresh
 
-    if (storedAccess) setAccessToken(storedAccess);
-    if (storedRefresh) setRefreshToken(storedRefresh);
-  }, []);
+export const TwitchAuthProvider = ({ children }: { children: ReactNode }) => {
+  const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem("twitch_access_token"));
+  const [refreshToken, setRefreshToken] = useState<string | null>(() => localStorage.getItem("twitch_refresh_token"));
+  const [tokenExpiry, setTokenExpiry] = useState<number>(() => {
+  const expiryStr = localStorage.getItem("twitch_token_expiry");
+    return expiryStr ? parseInt(expiryStr, 10) : 0;
+  });
 
-  const login = (token: string, refresh?: string) => {
-    setAccessToken(token);
-    if (refresh) {
-      setRefreshToken(refresh);
-      localStorage.setItem("twitch_refresh_token", refresh);
-    }
+  const refreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    localStorage.setItem("twitch_access_token", token);
-  };
+  const isAuthenticated = !!accessToken;
 
-  const logout = () => {
+  const clearAuth = () => {
     setAccessToken(null);
     setRefreshToken(null);
+    setTokenExpiry(0);
     localStorage.removeItem("twitch_access_token");
     localStorage.removeItem("twitch_refresh_token");
+    localStorage.removeItem("twitch_token_expiry");
+    if (refreshTimeout.current) {
+      clearTimeout(refreshTimeout.current);
+      refreshTimeout.current = null;
+    }
   };
 
+  // Call your backend to refresh the access token using the refresh token
+  const refreshAccessToken = useCallback(async () => {
+    if (!refreshToken) {
+      clearAuth();
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:3001/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      const data = await res.json();
+
+      if (data.access_token && data.refresh_token && data.expires_in) {
+        login(data.access_token, data.refresh_token, data.expires_in);
+      } else {
+        // Refresh failed, logout
+        clearAuth();
+      }
+    } catch (e) {
+      console.error("Failed to refresh token", e);
+      clearAuth();
+    }
+  }, [refreshToken]);
+
+  // login handler saves tokens, schedules refresh
+  const login = (accessToken: string, refreshToken?: string, expiresIn?: number) => {
+    console.log("⚡ login() called with:", { accessToken, refreshToken, expiresIn });
+    
+    setAccessToken(accessToken);
+    setRefreshToken(refreshToken ?? null);
+    // Convert expiresIn (seconds from now) into an absolute timestamp in ms
+    if (expiresIn) {
+      const expiresAt = Date.now() + expiresIn * 1000;
+      setTokenExpiry(expiresAt);
+      localStorage.setItem("twitch_token_expiry", expiresAt.toString());
+    }
+    if (refreshToken) localStorage.setItem("twitch_refresh_token", refreshToken);
+    localStorage.setItem("twitch_access_token", accessToken);
+  };
+
+  // logout clears all tokens
+  const logout = useCallback(() => {
+    clearAuth();
+  }, []);
+
+  // Schedule token refresh before expiry
+  useEffect(() => {
+    if (!accessToken || !tokenExpiry) return;
+
+    const now = Math.floor(Date.now() / 1000);
+    const expiresIn = tokenExpiry - now;
+
+    if (expiresIn <= REFRESH_MARGIN) {
+      // Token expired or close to expiry - refresh now
+      refreshAccessToken();
+    } else {
+      // Schedule refresh a bit before expiry
+      if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
+      refreshTimeout.current = setTimeout(() => {
+        refreshAccessToken();
+      }, (expiresIn - REFRESH_MARGIN) * 1000);
+    }
+
+    return () => {
+      if (refreshTimeout.current) {
+        clearTimeout(refreshTimeout.current);
+        refreshTimeout.current = null;
+      }
+    };
+  }, [accessToken, tokenExpiry, refreshAccessToken]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        accessToken,
-        refreshToken,
-        isAuthenticated: !!accessToken,
-        login,
-        logout,
-      }}
-    >
+    <TwitchAuthContext.Provider value={{ accessToken, isAuthenticated, login, logout }}>
       {children}
-    </AuthContext.Provider>
+    </TwitchAuthContext.Provider>
   );
 };
 
-export const useTwitchAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useTwitchAuth must be used inside a TwitchAuthProvider");
+export const useTwitchAuth = (): AuthContextType => {
+  const context = useContext(TwitchAuthContext);
+  if (!context) throw new Error("useTwitchAuth must be used within a TwitchAuthProvider");
   return context;
 };

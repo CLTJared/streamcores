@@ -2,12 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const TwitchSocket = require('ws');
+const authRoutes = require("./auth");
+const { getFreshAccessToken } = require("./utils/tokenAccess")
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const { TWITCH_OAUTH, TWITCH_USERNAME, PORT } = process.env;
+const { TWITCH_USERNAME, PORT } = process.env;
 const IRC_ENDPOINT = 'wss://irc-ws.chat.twitch.tv:443';
 let ts = null;
 let tsClients = [];
@@ -26,7 +28,7 @@ function parseTags(line) {
     return tags;
 }
 
-const connectTwitchChannel = (twitchUser) => {
+const connectTwitchChannel = (twitchUser, token) => {
     if (ts) ts.close();
 
     ts = new TwitchSocket(IRC_ENDPOINT);
@@ -36,7 +38,7 @@ const connectTwitchChannel = (twitchUser) => {
 
         // Request tags, commands, membership for badges and info
         ts.send('CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership');
-        ts.send(`PASS ${TWITCH_OAUTH}`);
+        ts.send(`PASS oauth:${token}`);
         ts.send(`NICK ${TWITCH_USERNAME}`);
         ts.send(`JOIN #${twitchUser}`);
     };
@@ -77,6 +79,8 @@ const connectTwitchChannel = (twitchUser) => {
     ts.onerror = (err) => console.error('IRC error:', err);
 };
 
+app.use("/auth", authRoutes);
+
 const server = app.listen(PORT, () => console.log(`✅ API server running on port ${PORT}`));
 const tss = new TwitchSocket.Server({ server });
 
@@ -89,11 +93,16 @@ tss.on('connection', (ws) => {
     });
 });
 
-app.post('/connect', (req, res) => {
+app.post('/connect', async (req, res) => {
     const { channel } = req.body;
 
     if (!channel) return res.status(400).json({ error: 'Channel is required.' });
 
-    connectTwitchChannel(channel.toLowerCase());
+      const accessToken = await getFreshAccessToken();
+        if (!accessToken) {
+            return res.status(500).json({ error: "Could not obtain access token" });
+        }
+
+    connectTwitchChannel(channel.toLowerCase(), accessToken);
     res.json({ status: 'Connecting', channel });
 });

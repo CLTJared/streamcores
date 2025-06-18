@@ -3,6 +3,8 @@ import {type ChatMessage, badgeIcons, getFallbackColor } from "./models/Chat";
 import Header from "./components/Header"
 import Button from "./components/Button"
 import { useTwitchAuth } from "./context/TwitchAuthContext";
+import { Route, Routes } from "react-router-dom";
+import Auth from "./callback/Auth";
 
 const parseBadges = (badgesStr?: string): string[] => {
   if (!badgesStr) return [];
@@ -92,23 +94,50 @@ function App() {
         setChannel={setChannel}
         onConnect={handleConnect}
       />
-    <section>
+      <Routes>
+        <Route path='/callback/auth' element={<Auth />} />
+      </Routes>
+    <div className="my-2 ms-2">
       <Button
+        type="button"
         onClick={() => {
+          console.log("Button clicked");
           if (isAuthenticated) {
+            console.log("Logging out");
             logout();
           } else {
+            console.log("Attempting login with stored tokens");
             const storedAccess = localStorage.getItem("twitch_access_token");
             const storedRefresh = localStorage.getItem("twitch_refresh_token");
-            if (storedAccess) {
-              login(storedAccess, storedRefresh ?? undefined);
+            const storedExpires = localStorage.getItem("twitch_expires_in");
+
+            if (
+              storedAccess &&
+              storedRefresh &&
+              storedExpires &&
+              Number(storedExpires) > Date.now()
+            ) {
+              console.log("Attempting login with stored tokens");
+              login(storedAccess, storedRefresh, (Number(storedExpires) - Date.now()) / 1000);
+            } else {
+              console.log("No valid tokens, redirecting to Twitch OAuth...");
+              // redirect
+              const clientId = import.meta.env.VITE_TWITCH_CLIENT_ID;
+              const redirectUri = encodeURIComponent("http://localhost:5173/callback/auth"); // your redirect URL
+              const scopes = encodeURIComponent("chat:read user:read:follows"); // scopes you need
+              const responseType = "code"; // for Authorization Code Flow
+
+              const authUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scopes}`;
+
+              window.location.href = authUrl;
             }
           }
         }}
+        className="bg-purple-500"
       >
         {isAuthenticated ? "Logout" : "Login with Twitch"}
       </Button>
-    </section>
+    </div>
     <section className="p-4 max-w-2xl mx-auto" id="chatarea">
       <h3 className="text-neutral-500 text-lg font-semibold mb-2">Twitch Chat - {status}</h3>
       <div className="bg-neutral-950 p-4 rounded overflow-y-auto max-h-[600px] flex flex-col-reverse">
