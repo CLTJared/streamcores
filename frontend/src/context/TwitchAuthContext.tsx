@@ -87,10 +87,11 @@ export const TwitchAuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!accessToken || !tokenExpiry) return;
 
-    const now = Math.floor(Date.now() / 1000);
+    const now = Date.now() // milliseconds
     const expiresIn = tokenExpiry - now;
+    console.log(`Token expires in ${Math.floor(expiresIn / 1000)}s, scheduling refresh...`);
 
-    if (expiresIn <= REFRESH_MARGIN) {
+    if (expiresIn <= REFRESH_MARGIN * 1000) {
       // Token expired or close to expiry - refresh now
       refreshAccessToken();
     } else {
@@ -98,7 +99,7 @@ export const TwitchAuthProvider = ({ children }: { children: ReactNode }) => {
       if (refreshTimeout.current) clearTimeout(refreshTimeout.current);
       refreshTimeout.current = setTimeout(() => {
         refreshAccessToken();
-      }, (expiresIn - REFRESH_MARGIN) * 1000);
+      }, expiresIn - REFRESH_MARGIN * 1000);
     }
 
     return () => {

@@ -32,7 +32,7 @@ router.post("/token", async (req, res) => {
 
 router.post("/refresh", async (req, res) => {
   const { refresh_token } = req.body;
-  if (!refresh_token) return res.status(400).json({ error: "No refresh token" });
+  if (!refresh_token) return res.status(400).json({ error: "No refresh token provided." });
 
   try {
     const resp = await axios.post("https://id.twitch.tv/oauth2/token", null, {

@@ -1,4 +1,5 @@
-export type ChatMessage = {
+interface ChatMessage {
+  type: 'chat';
   username: string;
   message: string;
   badges?: string;      // e.g. "moderator/1,subscriber/12"
@@ -6,11 +7,31 @@ export type ChatMessage = {
   displayName?: string; // nicer display name if provided
 };
 
+interface SysMessage {
+	type: 'system'; // Discriminator property
+  username: string;
+	message: string; // The main message content from the line.match
+	msgId: string; // From sysTags['msg-id']
+	sysMsg: string; // From sysTags['system-msg']
+	color: string;
+	badges: string;
+	displayName: string; // Display name for user notices (e.g., cheer, sub)
+}
+
+export type FrontendMessage = ChatMessage | SysMessage;
+
+export interface MediaItem {
+  url: string;
+  displayName: string; // The display name of the user who sent the link
+  message: string;     // The full chat message containing the link
+}
+
 const badgeIcons: Record<string, string> = {
   moderator: "⚔️",
   subscriber: "✨",
   vip: "💎",
-  broadcaster: "📢",
+  broadcaster: "🎥",
+  announcement: "📢",
 };
 
 const fallbackColors = [

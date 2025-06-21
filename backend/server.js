@@ -3,10 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const TwitchSocket = require('ws');
 const authRoutes = require("./auth");
-const { getFreshAccessToken } = require("./utils/tokenAccess")
+const apiRoutes = require("./api");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Allow your Vite dev server
+  methods: ['GET', 'POST', 'OPTIONS'],
+}));
 app.use(express.json());
 
 const { TWITCH_USERNAME, PORT } = process.env;
@@ -53,12 +56,37 @@ const connectTwitchChannel = (twitchUser, token) => {
             } else if (line.trim() !== '') {
                 // console.log('\x1b[32m[IRC]\x1b[0m', line);
                 // PRIVMSG regex with tags line starting with '@'
+
                 const PRIVMSG_REGEX = /^@.*? :([^!]+)!.*PRIVMSG #[^ ]+ :(.+)$/;
+                //const SYSMSG_REGEX = /^@.*? :(?:([^!]+)![^ ]+ )?tmi\.twitch\.tv USERNOTICE #([^ ]+)(?: :(.*))?$/;
+                const SYSMSG_REGEX = /^@[^ ]+ :tmi\.twitch\.tv USERNOTICE #([^ ]+)(?: :(.*))?$/
+
+                if (line.startsWith('@') && SYSMSG_REGEX.test(line)) {
+                    const sysTags = parseTags(line);
+                    const [message = ''] = line.match(SYSMSG_REGEX);
+                    const sysMessage = {
+                        type: 'system',
+                        username: sysTags['display-name'] || '',
+                        message,
+                        msgId: sysTags['msg-id'] || '',
+                        sysMsg: sysTags['system-msg'] || '',
+                        color: sysTags.color || '',
+                        badges: sysTags.badges || '',
+                        displayName: sysTags['display-name'] || '',
+                    };
+                    console.log(sysMessage);
+
+                    // Broadcast to all connected clients
+                    tsClients.forEach((client) => {
+                        if (client.readyState === TwitchSocket.OPEN) client.send(JSON.stringify(sysMessage));
+                    });
+                }
 
                 if (line.startsWith('@') && PRIVMSG_REGEX.test(line)) {
                     const tags = parseTags(line);
                     const [, username, message] = line.match(PRIVMSG_REGEX);
                     const chatMessage = {
+                        type: 'chat',
                         username,
                         message,
                         badges: tags.badges || '',
@@ -80,6 +108,7 @@ const connectTwitchChannel = (twitchUser, token) => {
 };
 
 app.use("/auth", authRoutes);
+app.use("/api", apiRoutes);
 
 const server = app.listen(PORT, () => console.log(`✅ API server running on port ${PORT}`));
 const tss = new TwitchSocket.Server({ server });
