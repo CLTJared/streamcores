@@ -7,6 +7,6 @@ export type Toast = {
 
 export type ToastContextType = {
     toast: Toast[];
-    addToast: (message: string, title?: string, type?: Toast['type']) => void;
+    addToast: (message: string, title: string, type?: Toast['type']) => void;
     removeToast: (id: string) => void;
 }

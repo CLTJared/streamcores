@@ -1,13 +1,16 @@
 interface ChatMessage {
+  id: string;
   type: 'chat';
   username: string;
   message: string;
   badges?: string;      // e.g. "moderator/1,subscriber/12"
   color?: string;       // Twitch user color for username
   displayName?: string; // nicer display name if provided
+  timestamp: number;
 };
 
 interface SysMessage {
+  id: string;
 	type: 'system'; // Discriminator property
   username: string;
 	message: string; // The main message content from the line.match
@@ -16,6 +19,7 @@ interface SysMessage {
 	color: string;
 	badges: string;
 	displayName: string; // Display name for user notices (e.g., cheer, sub)
+  timestamp: number;
 }
 
 export type FrontendMessage = ChatMessage | SysMessage;
@@ -32,6 +36,7 @@ const badgeIcons: Record<string, string> = {
   vip: "💎",
   broadcaster: "🎥",
   announcement: "📢",
+  turbo: '⚡️',
 };
 
 const fallbackColors = [
@@ -41,6 +46,19 @@ const fallbackColors = [
   "#ffb74d", // orange
   "#ba68c8", // purple
 ]
+
+export type Follower = {
+  username: string;
+  userId: string;
+  isNew?: boolean;
+}
+
+export interface TwitchEventListenerProps {
+  accessToken: string | null;
+  channel: string;
+  onMessage: (msg: FrontendMessage) => void;
+  setUserId: React.Dispatch<React.SetStateAction<string | null>>;  // add this
+}
 
 function getFallbackColor(username: string): string {
   let hash = 0;

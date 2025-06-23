@@ -1,18 +1,15 @@
 import { useEffect, useRef } from "react";
-import { type FrontendMessage } from "@/models/Chat";
-import { useToast } from "@/context/ToastContext";
-
-interface TwitchEventListenerProps {
-  accessToken: string | null;
-  channel: string;
-  onMessage: (msg: FrontendMessage) => void;
-}
+import { type FrontendMessage, type TwitchEventListenerProps } from "@/models/Message";
+import { useToast } from "@/hooks/useToast";
 
 export default function TwitchEventListener({ accessToken, channel, onMessage }: TwitchEventListenerProps) {
   const socketRef = useRef<WebSocket | null>(null);
   const { addToast } = useToast();
 
   useEffect(() => {
+
+    console.log("useEffect in TwitchEventListener, channel:", channel);
+
     if (!accessToken) {
       console.log("No access token, skipping WS connect");
       return;
@@ -31,18 +28,20 @@ export default function TwitchEventListener({ accessToken, channel, onMessage }:
     socket.onopen = () => {
       console.log("WebSocket connected");
       // Send join command to backend for this channel
+      console.log("Sending JOIN for channel:", channel);
       socket.send(JSON.stringify({ type: "JOIN", channel }));
     };
 
     socket.onmessage = (event) => {
       try {
-        // Log raw event for debugging
-        console.log("Received WS message:", event.data);
         const msg: FrontendMessage = JSON.parse(event.data);
 
         // Handle system messages with toast
         if (msg.type === "system") {
-          addToast(msg.message, "info");
+          const toastTitle = msg.msgId
+            ? `${msg.msgId}: ${msg.displayName}`
+            : msg.displayName;
+          addToast(msg.message, toastTitle, "info");
           return;
         }
 

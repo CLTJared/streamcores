@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useTwitchAuth } from "../context/TwitchAuthContext";
+import { useTwitchAuth } from "@/hooks/useTwitchAuth";
 import { useNavigate } from "react-router-dom";
 
 const Auth = () => {

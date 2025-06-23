@@ -1,23 +1,48 @@
 @import "tailwindcss";
 
 #root {
-    @apply min-w-svw;
+    @apply min-h-dvh min-w-svw;
 }
 
+mark {
+  @apply bg-purple-600 px-1 text-neutral-100;
+}
+
+a[data-name="chat-link"] {
+    @apply bg-blue-800;
+}
+
+a[data-name="chat-link"]::before {
+    content: '';
+    @apply pe-1;
+}
+
+a[data-name="chat-link"]::after {
+    content: '';
+    @apply ps-1;
+}
 
 @layer utilities {
-  .animate-slide-in {
-    animation: slide-in 0.3s ease-out;
+  .animate-slide-in-out {
+    animation: slide-in-out 8s ease-in-out forwards;
   }
 
-  @keyframes slide-in {
-    from {
+  @keyframes slide-in-out {
+    0% {
       transform: translateX(100%);
       opacity: 0;
     }
-    to {
+    10% {
       transform: translateX(0);
       opacity: 1;
+    }
+    90% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(100%);
+      opacity: 0;
     }
   }
 }

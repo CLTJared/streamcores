@@ -4,6 +4,7 @@ import axios from 'axios';
 interface LinkPreviewProps {
   url: string;
   submitter?: string;
+  onRemove?: (url: string) => void;
 }
 
 interface PreviewData {
@@ -13,14 +14,16 @@ interface PreviewData {
   url?: string;
 }
 
-const LinkPreview: React.FC<LinkPreviewProps> = ({ url, submitter }) => {
+const LinkPreview: React.FC<LinkPreviewProps> = ({ url, submitter, onRemove }) => {
   const [preview, setPreview] = useState<PreviewData | null>(null);
 
   useEffect(() => {
-
-    if(submitter?.toLowerCase() === 'fossabot') return;
-
     const fetchPreview = async () => {
+      if (url.includes('x.com') || url.includes('twitter.com')) {
+        setPreview(null);
+        return;
+      }
+
       try {
         const res = await axios.get('http://localhost:3001/api/preview', {
           params: { url },
@@ -36,12 +39,22 @@ const LinkPreview: React.FC<LinkPreviewProps> = ({ url, submitter }) => {
   }, [url]);
 
   if (!preview) return (
-    <div className="border-b-1 border-neutral-300 mb-2">
-    <a href={url} target="_blank" rel="noopener noreferrer" className="flex flex-row max-w-md">
-      <p className="text-xs font-semibold">
+    <div className="inline-block border-b-1 border-neutral-300 mb-2">
+    <a 
+      href={url} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="flex flex-row max-w-md"
+      onClick={(e) => {
+        e.preventDefault();      // prevent normal link navigation
+        onRemove?.(url);         // call remove callback
+        window.open(url, "_blank"); // then open link manually
+      }}
+    >
+      <p className="inline-block text-xs font-semibold overflow-y-ellipsis max-h-sm">
       {(() => {
         try {
-          if (url.includes('x.com/')) {
+          if (url.includes('x.com/') || url.includes('twitter.com/')) {
             const tempURL = new URL(url.includes('://') ? url : 'https://' + url); // Default to https
             const parts = tempURL.pathname.split('/');
             if (parts[1]) {
@@ -66,15 +79,25 @@ const LinkPreview: React.FC<LinkPreviewProps> = ({ url, submitter }) => {
   );
 
   return (
-    <div className="border-b-1 border-neutral-300 mb-2 pe-2">
-    <a href={url} target="_blank" rel="noopener noreferrer" className="flex flex-row max-w-md">
+    <div className="inline-block border-b-1 border-neutral-300 mb-2">
+      <a 
+        href={url} 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        className="flex flex-row max-w-md"
+        onClick={(e) => {
+          e.preventDefault();      // prevent normal link navigation
+          onRemove?.(url);         // call remove callback
+          window.open(url, "_blank"); // then open link manually
+        }}
+      >
       {preview.image && (
-        <img src={preview.image} alt={preview.title || 'Preview'} className="w-15 h-15 object-cover rounded mb-2 me-1" />
+        <img src={preview.image} alt={preview.title || 'preview'} className="max-w-15 max-h-15 object-cover rounded mb-2 me-1" />
       )}
-      <p className="text-xs font-semibold text-pretty">{preview.title}</p>
+      <p className="inline-block text-xs font-semibold overflow-y-ellipsis max-h-sm">{preview.title}</p>
     </a>
     <p className="mb-2 text-xs text-neutral-700 grow">
-      Shared by: <span className="font-semibold text-ellipsis text-blue-700">{submitter}</span>
+      Shared by: <span className="font-semibold  text-blue-700">{submitter}</span>
     </p>
     </div>
   );

@@ -63,18 +63,22 @@ const connectTwitchChannel = (twitchUser, token) => {
 
                 if (line.startsWith('@') && SYSMSG_REGEX.test(line)) {
                     const sysTags = parseTags(line);
-                    const [message = ''] = line.match(SYSMSG_REGEX);
+                    const userMsgMatch = line.match(/USERNOTICE #[^ ]+ :?(.*)$/);
+                    const formatSysMsg =  sysTags['system-msg'].replace(/\\s/g, ' ') || '';
+                    const userMsg = userMsgMatch ? userMsgMatch[1] : '';
+
                     const sysMessage = {
+                        id: sysTags.id,
                         type: 'system',
                         username: sysTags['display-name'] || '',
-                        message,
-                        msgId: sysTags['msg-id'] || '',
-                        sysMsg: sysTags['system-msg'] || '',
+                        message: userMsg || '',
+                        msgId: sysTags['msg-id'],
+                        sysMsg: formatSysMsg,
                         color: sysTags.color || '',
                         badges: sysTags.badges || '',
                         displayName: sysTags['display-name'] || '',
+                        timestamp: sysTags['tmi-sent-ts'] || Date.now(),
                     };
-                    console.log(sysMessage);
 
                     // Broadcast to all connected clients
                     tsClients.forEach((client) => {
@@ -86,12 +90,14 @@ const connectTwitchChannel = (twitchUser, token) => {
                     const tags = parseTags(line);
                     const [, username, message] = line.match(PRIVMSG_REGEX);
                     const chatMessage = {
+                        id: tags.id,
                         type: 'chat',
                         username,
                         message,
                         badges: tags.badges || '',
                         color: tags.color || '',
                         displayName: tags['display-name'] || username,
+                        timestamp: tags['tmi-sent-ts'] || Date.now(),
                     };
 
                     // Broadcast to all connected clients

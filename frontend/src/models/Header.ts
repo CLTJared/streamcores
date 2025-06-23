@@ -1,5 +1,5 @@
 export type HeaderProps = {
     channel: string;
-    setChannel: (val: string) => void;
-    onConnect: () => void;
+    setChannel: (channel: string) => void;
+    onConnect: (channel: string) => void;
 }

@@ -1,15 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode, useCallback, useRef } from "react";
-
-type AuthContextType = {
-  accessToken: string | null;
-  isAuthenticated: boolean;
-  login: (accessToken: string, refreshToken: string, expiresIn: number) => void;
-  logout: () => void;
-};
-
-const TwitchAuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const REFRESH_MARGIN = 60; // seconds before expiry to refresh
+import { useState, useEffect, type ReactNode, useCallback, useRef } from "react";
+import { TwitchAuthContext} from "@/context/TwitchAuthContext";
 
 export const TwitchAuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem("twitch_access_token"));
@@ -20,6 +10,7 @@ export const TwitchAuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const refreshTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const REFRESH_MARGIN = 60; // seconds before expiry to refresh
 
   const isAuthenticated = !!accessToken;
 
@@ -115,10 +106,4 @@ export const TwitchAuthProvider = ({ children }: { children: ReactNode }) => {
       {children}
     </TwitchAuthContext.Provider>
   );
-};
-
-export const useTwitchAuth = (): AuthContextType => {
-  const context = useContext(TwitchAuthContext);
-  if (!context) throw new Error("useTwitchAuth must be used within a TwitchAuthProvider");
-  return context;
 };
